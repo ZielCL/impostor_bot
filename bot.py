@@ -7153,8 +7153,8 @@ async def gi_btn_setup(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
 
     elif action == "publicar":
-        campos_req = ["file_id", "file_id_reveal", "idol_name", "hint1", "hint2", "hint3", "inicio_ts", "fin_ts"]
-        # Verificar que los 3 hints seleccionados en hint_order tienen valor
+        # Solo los campos base (sin hint1-3 fijos) + los hints del orden elegido
+        campos_req = ["file_id", "file_id_reveal", "idol_name", "inicio_ts", "fin_ts"]
         hint_order_setup = setup.get("hint_order", [1, 2, 3])
         faltantes_orden  = [f"hint{n}" for n in hint_order_setup if not setup.get(f"hint{n}")]
         faltantes = [c for c in campos_req if not setup.get(c)] + faltantes_orden
