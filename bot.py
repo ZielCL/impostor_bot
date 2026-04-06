@@ -1604,7 +1604,15 @@ def init_db():
         "ALTER TABLE gi_marcador ADD COLUMN temporada INTEGER DEFAULT 1",
         "ALTER TABLE gi_marcador ADD COLUMN victorias_temp INTEGER DEFAULT 0",
         "ALTER TABLE gi_rondas ADD COLUMN division INTEGER DEFAULT 1",
+        "ALTER TABLE gi_rondas ADD COLUMN hint4 TEXT",
+        "ALTER TABLE gi_rondas ADD COLUMN hint5 TEXT",
+        "ALTER TABLE gi_rondas ADD COLUMN hint6 TEXT",
+        "ALTER TABLE gi_rondas ADD COLUMN hint_order TEXT DEFAULT '1,2,3'",
         "ALTER TABLE gi_programacion ADD COLUMN division INTEGER DEFAULT 1",
+        "ALTER TABLE gi_programacion ADD COLUMN hint4 TEXT",
+        "ALTER TABLE gi_programacion ADD COLUMN hint5 TEXT",
+        "ALTER TABLE gi_programacion ADD COLUMN hint6 TEXT",
+        "ALTER TABLE gi_programacion ADD COLUMN hint_order TEXT DEFAULT '1,2,3'",
         """CREATE TABLE IF NOT EXISTS gi_temporada (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             chat_key TEXT,
@@ -5245,9 +5253,12 @@ GI_TEXTOS = {
         "gi_solo_privado":      "⚠️ Este comando solo funciona en chat privado con el bot\\.",
         "gi_grupos_vacio":      "📭 El bot no ha registrado ningún grupo aún\\.",
         "gi_sin_pistas":        "_Aún no hay pistas\\._",
-        "gi_hint1_reveal":      "👥 *Pista 1:* El grupo tiene *{hint1}* miembros",
-        "gi_hint2_reveal":      "🏢 *Pista 2:* Pertenece a *{hint2}*",
-        "gi_hint3_reveal":      "🎤 *Pista 3:* El grupo es *{hint3}*",
+        "gi_hint1_reveal":      "👥 *Pista {n}:* El grupo tiene *{val}* miembros",
+        "gi_hint2_reveal":      "🏢 *Pista {n}:* Pertenece a *{val}*",
+        "gi_hint3_reveal":      "🎤 *Pista {n}:* El grupo es *{val}*",
+        "gi_hint4_reveal":      "📅 *Pista {n}:* Debutó en *{val}*",
+        "gi_hint5_reveal":      "🌍 *Pista {n}:* Es de *{val}*",
+        "gi_hint6_reveal":      "🎭 *Pista {n}:* Su posición es *{val}*",
         "gi_nueva_pista":       "💡 *¡Nueva pista revelada\\!*\n\n{pista}",
         "gi_btn_participar":    "✋ Participar",
         "gi_btn_salir":         "⏸️ Pausar participación",
@@ -5294,9 +5305,12 @@ GI_TEXTOS = {
         "gi_solo_privado":      "⚠️ This command only works in private chat with the bot\\.",
         "gi_grupos_vacio":      "📭 The bot hasn't registered any groups yet\\.",
         "gi_sin_pistas":        "_No hints yet\\._",
-        "gi_hint1_reveal":      "👥 *Hint 1:* The group has *{hint1}* members",
-        "gi_hint2_reveal":      "🏢 *Hint 2:* They belong to *{hint2}*",
-        "gi_hint3_reveal":      "🎤 *Hint 3:* The group is *{hint3}*",
+        "gi_hint1_reveal":      "👥 *Hint {n}:* The group has *{val}* members",
+        "gi_hint2_reveal":      "🏢 *Hint {n}:* They belong to *{val}*",
+        "gi_hint3_reveal":      "🎤 *Hint {n}:* The group is *{val}*",
+        "gi_hint4_reveal":      "📅 *Hint {n}:* Debuted in *{val}*",
+        "gi_hint5_reveal":      "🌍 *Hint {n}:* They are from *{val}*",
+        "gi_hint6_reveal":      "🎭 *Hint {n}:* Their position is *{val}*",
         "gi_nueva_pista":       "💡 *New hint revealed\\!*\n\n{pista}",
         "gi_btn_participar":    "✋ Join",
         "gi_btn_salir":         "⏸️ Pause participation",
@@ -5530,44 +5544,71 @@ def gi_get_marcador(chat_key: str) -> list:
 def gi_t(lang: str, key: str) -> str:
     return GI_TEXTOS.get(lang, GI_TEXTOS["es"]).get(key, f"[{key}]")
 
+# Nombres cortos de cada tipo de pista para la UI
+_GI_HINT_NOMBRES = {
+    "es": {1: "👥 Miembros", 2: "🏢 Empresa", 3: "🎤 Grupo",
+           4: "📅 Debut",    5: "🌍 Nación",  6: "🎭 Posición"},
+    "en": {1: "👥 Members",  2: "🏢 Company", 3: "🎤 Group",
+           4: "📅 Debut",    5: "🌍 Nation",  6: "🎭 Position"},
+}
+
+def _gi_hint_nombre(lang: str, hint_num: int) -> str:
+    return _GI_HINT_NOMBRES.get(lang, _GI_HINT_NOMBRES["es"]).get(hint_num, f"Hint {hint_num}")
+
+def _gi_format_hint(lang: str, hint_num: int, position: int, value: str) -> str:
+    """Formatea el texto de una pista revelada dado su tipo, posición y valor."""
+    key = f"gi_hint{hint_num}_reveal"
+    return gi_t(lang, key).format(n=position, val=esc(value))
+
+
 def gi_build_setup_text(setup: dict, lang: str) -> str:
     no_conf = "❌ _No configurado_" if lang == "es" else "❌ _Not set_"
     tz = setup.get("tz_offset", 0)
+    hint_order = setup.get("hint_order", [1, 2, 3])
 
-    img_v    = "✅ _cargada_" if setup.get("file_id") else no_conf
-    img2_v   = ("✅ _cargada \\(video\\)_" if setup.get("reveal_is_video") else "✅ _cargada_") if setup.get("file_id_reveal") else no_conf
-    idol_v   = f"*{esc(setup['idol_name'])}*" if setup.get("idol_name") else no_conf
-    h1_v     = f"*{esc(setup['hint1'])}*" if setup.get("hint1") else no_conf
-    h2_v     = f"*{esc(setup['hint2'])}*" if setup.get("hint2") else no_conf
-    h3_v     = f"*{esc(setup['hint3'])}*" if setup.get("hint3") else no_conf
-    ini_v    = f"*{esc(_formato_fecha_hora_local(setup['inicio_ts'], tz))}*" if setup.get("inicio_ts") else no_conf
-    fin_v    = f"*{esc(_formato_fecha_hora_local(setup['fin_ts'], tz))}*" if setup.get("fin_ts") else no_conf
-    tz_v     = f"*{esc(_tz_label(tz))}*"
-    div      = setup.get("division", 1)
-    div_v    = f"*🥇 Primera División*" if div == 1 else f"*🥈 Segunda División*"
+    img_v  = "✅ _cargada_" if setup.get("file_id") else no_conf
+    img2_v = ("✅ _cargada \\(video\\)_" if setup.get("reveal_is_video") else "✅ _cargada_") if setup.get("file_id_reveal") else no_conf
+    idol_v = f"*{esc(setup['idol_name'])}*" if setup.get("idol_name") else no_conf
+    ini_v  = f"*{esc(_formato_fecha_hora_local(setup['inicio_ts'], tz))}*" if setup.get("inicio_ts") else no_conf
+    fin_v  = f"*{esc(_formato_fecha_hora_local(setup['fin_ts'], tz))}*" if setup.get("fin_ts") else no_conf
+    tz_v   = f"*{esc(_tz_label(tz))}*"
+    div    = setup.get("division", 1)
+    div_v  = f"*🥇 Primera División*" if div == 1 else f"*🥈 Segunda División*"
+
+    def hv(n):
+        val = setup.get(f"hint{n}")
+        return f"*{esc(val)}*" if val else no_conf
 
     if lang == "es":
-        titulo = "🎤 *Programar: Adivina la Idol*"
-        nota   = "_Configura todos los campos y pulsa Publicar\\._"
+        titulo  = "🎤 *Programar: Adivina la Idol*"
+        nota    = "_Configura todos los campos y pulsa Publicar\\._"
+        lbl_ord = "🔢 Orden de pistas en ronda"
     else:
-        titulo = "🎤 *Schedule: Guess the Idol*"
-        nota   = "_Configure all fields and press Publish\\._"
+        titulo  = "🎤 *Schedule: Guess the Idol*"
+        nota    = "_Configure all fields and press Publish\\._"
+        lbl_ord = "🔢 Round hint order"
+
+    ord_txt = " → ".join(_gi_hint_nombre(lang, h) for h in hint_order)
 
     return (
         f"{titulo}\n\n"
-        f"📸 Imagen misterio: {img_v}\n"
-        f"🖼 Imagen reveal: {img2_v}\n"
-        f"👤 Idol: {idol_v}\n"
-        f"👥 Pista 1 \\(miembros\\): {h1_v}\n"
-        f"🏢 Pista 2 \\(empresa\\): {h2_v}\n"
-        f"🎤 Pista 3 \\(grupo\\): {h3_v}\n"
-        f"⏰ Inicio: {ini_v}\n"
-        f"⏹ Fin: {fin_v}\n"
-        f"🌐 Zona horaria: {tz_v}\n"
-        f"🏆 División: {div_v}\n\n"
+        f"📸 {'Imagen misterio' if lang == 'es' else 'Mystery image'}: {img_v}\n"
+        f"🖼 {'Imagen reveal' if lang == 'es' else 'Reveal image'}: {img2_v}\n"
+        f"👤 Idol: {idol_v}\n\n"
+        f"*{'Pistas disponibles' if lang == 'es' else 'Available hints'}:*\n"
+        f"  1\\. 👥 {'Miembros' if lang == 'es' else 'Members'}: {hv(1)}\n"
+        f"  2\\. 🏢 {'Empresa' if lang == 'es' else 'Company'}: {hv(2)}\n"
+        f"  3\\. 🎤 {'Grupo' if lang == 'es' else 'Group'}: {hv(3)}\n"
+        f"  4\\. 📅 Debut: {hv(4)}\n"
+        f"  5\\. 🌍 {'Nación' if lang == 'es' else 'Nation'}: {hv(5)}\n"
+        f"  6\\. 🎭 {'Posición' if lang == 'es' else 'Position'}: {hv(6)}\n\n"
+        f"{lbl_ord}: *{esc(ord_txt)}*\n\n"
+        f"⏰ {'Inicio' if lang == 'es' else 'Start'}: {ini_v}\n"
+        f"⏹ {'Fin' if lang == 'es' else 'End'}: {fin_v}\n"
+        f"🌐 {'Zona horaria' if lang == 'es' else 'Timezone'}: {tz_v}\n"
+        f"🏆 {'División' if lang == 'es' else 'Division'}: {div_v}\n\n"
         f"{nota}"
     )
-
 # Slots fijos UTC para Adivina la Idol
 _GI_SLOTS_UTC = [
     (10, 11), (12, 13), (14, 15), (16, 17),
@@ -5628,22 +5669,37 @@ def _gi_slots_disponibles() -> list:
 
 
 def gi_build_setup_keyboard(setup: dict, lang: str) -> list:
-    tz = setup.get("tz_offset", 0)
-    lbl_img    = "📸 Imagen misterio"     if lang == "es" else "📸 Mystery image"
-    lbl_rev    = "🖼 Imagen/Video reveal"  if lang == "es" else "🖼 Reveal image/video"
-    lbl_idol   = "👤 Nombre de la idol"   if lang == "es" else "👤 Idol name"
-    lbl_h1     = "👥 Pista 1: Miembros"  if lang == "es" else "👥 Hint 1: Members"
-    lbl_h2     = "🏢 Pista 2: Empresa"   if lang == "es" else "🏢 Hint 2: Company"
-    lbl_h3     = "🎤 Pista 3: Grupo"     if lang == "es" else "🎤 Hint 3: Group"
-    lbl_ini    = "⏰ Inicio manual"       if lang == "es" else "⏰ Start (manual)"
-    lbl_fin    = "⏹ Fin manual"          if lang == "es" else "⏹ End (manual)"
-    lbl_prev     = "👁 Misterio"            if lang == "es" else "👁 Mystery"
-    lbl_prev_rev = "👁 Reveal"              if lang == "es" else "👁 Reveal"
-    lbl_pub    = "✅ Publicar"            if lang == "es" else "✅ Publish"
-    lbl_can    = "❌ Cancelar"            if lang == "es" else "❌ Cancel"
-    lbl_slots  = "🕐 Elegir horario fijo:" if lang == "es" else "🕐 Fixed time slot:"
+    tz         = setup.get("tz_offset", 0)
+    hint_order = setup.get("hint_order", [1, 2, 3])
 
-    # Botones de slots disponibles (sin los ya programados)
+    if lang == "es":
+        lbl_img    = "📸 Imagen misterio"
+        lbl_rev    = "🖼 Imagen/Video reveal"
+        lbl_idol   = "👤 Nombre de la idol"
+        lbl_ini    = "⏰ Inicio manual"
+        lbl_fin    = "⏹ Fin manual"
+        lbl_prev   = "👁 Misterio"
+        lbl_prev_r = "👁 Reveal"
+        lbl_pub    = "✅ Publicar"
+        lbl_can    = "❌ Cancelar"
+        lbl_slots  = "🕐 Elegir horario fijo:"
+        lbl_pistas = "📝 Pistas disponibles:"
+        lbl_orden  = "🔢 Orden en ronda:"
+    else:
+        lbl_img    = "📸 Mystery image"
+        lbl_rev    = "🖼 Reveal image/video"
+        lbl_idol   = "👤 Idol name"
+        lbl_ini    = "⏰ Start (manual)"
+        lbl_fin    = "⏹ End (manual)"
+        lbl_prev   = "👁 Mystery"
+        lbl_prev_r = "👁 Reveal"
+        lbl_pub    = "✅ Publish"
+        lbl_can    = "❌ Cancel"
+        lbl_slots  = "🕐 Fixed time slot:"
+        lbl_pistas = "📝 Available hints:"
+        lbl_orden  = "🔢 Round order:"
+
+    # Botones de slots disponibles
     slots = _gi_slots_disponibles()
     slot_rows = []
     for i in range(0, len(slots), 2):
@@ -5652,52 +5708,85 @@ def gi_build_setup_keyboard(setup: dict, lang: str) -> list:
             row.append(InlineKeyboardButton(lbl, callback_data=f"gi:setup:slot:{ini_h}:{fin_h}"))
         slot_rows.append(row)
 
-    rows = [
-        [InlineKeyboardButton(lbl_img,  callback_data="gi:setup:imagen")],
-        [InlineKeyboardButton(lbl_rev,  callback_data="gi:setup:imagen_reveal")],
-        [InlineKeyboardButton(lbl_idol, callback_data="gi:setup:idol")],
-        [InlineKeyboardButton(lbl_h1,   callback_data="gi:setup:hint1")],
-        [InlineKeyboardButton(lbl_h2,   callback_data="gi:setup:hint2")],
-        [InlineKeyboardButton(lbl_h3,   callback_data="gi:setup:hint3")],
-        [InlineKeyboardButton(lbl_slots, callback_data="gi:setup:slot_header")],
-    ] + slot_rows + [
-        [InlineKeyboardButton(lbl_ini, callback_data="gi:setup:inicio"),
-         InlineKeyboardButton(lbl_fin, callback_data="gi:setup:fin")],
-        [
-            InlineKeyboardButton(f"◀ {_tz_label(max(-12,tz-1))}", callback_data="gi:setup:tz:-1"),
-            InlineKeyboardButton(f"🌐 {_tz_label(tz)}",           callback_data="gi:setup:tz:0"),
-            InlineKeyboardButton(f"{_tz_label(min(14,tz+1))} ▶",  callback_data="gi:setup:tz:+1"),
-        ],
-        [InlineKeyboardButton(lbl_prev,      callback_data="gi:setup:preview"),
-         InlineKeyboardButton(lbl_prev_rev,  callback_data="gi:setup:preview_reveal")],
-    ]
-    div = setup.get("division", 1)
-    lbl_div = ("🥈 Cambiar a Segunda División" if div == 1 else "🥇 Cambiar a Primera División") if lang == "es" else \
-              ("🥈 Switch to Second Division" if div == 1 else "🥇 Switch to First Division")
-    rows += [
-        [InlineKeyboardButton(lbl_div, callback_data="gi:setup:division")],
-        [
-            InlineKeyboardButton(lbl_pub, callback_data="gi:setup:publicar"),
-            InlineKeyboardButton(lbl_can, callback_data="gi:setup:cancelar"),
-        ],
-    ]
-    return rows
+    # Botones de las 6 pistas
+    hint_names_short = {
+        "es": {1: "👥 Miembros", 2: "🏢 Empresa", 3: "🎤 Grupo", 4: "📅 Debut", 5: "🌍 Nación", 6: "🎭 Posición"},
+        "en": {1: "👥 Members",  2: "🏢 Company", 3: "🎤 Group",  4: "📅 Debut", 5: "🌍 Nation", 6: "🎭 Position"},
+    }[lang]
 
+    hint_rows = [
+        [InlineKeyboardButton(lbl_pistas, callback_data="gi:setup:noop")],
+        [
+            InlineKeyboardButton(f"1. {hint_names_short[1]}", callback_data="gi:setup:hint1"),
+            InlineKeyboardButton(f"2. {hint_names_short[2]}", callback_data="gi:setup:hint2"),
+            InlineKeyboardButton(f"3. {hint_names_short[3]}", callback_data="gi:setup:hint3"),
+        ],
+        [
+            InlineKeyboardButton(f"4. {hint_names_short[4]}", callback_data="gi:setup:hint4"),
+            InlineKeyboardButton(f"5. {hint_names_short[5]}", callback_data="gi:setup:hint5"),
+            InlineKeyboardButton(f"6. {hint_names_short[6]}", callback_data="gi:setup:hint6"),
+        ],
+    ]
+
+    # Selectores de orden (cada clic cicla al siguiente hint)
+    order_label = "P" if lang == "es" else "H"
+    order_rows = [
+        [InlineKeyboardButton(lbl_orden, callback_data="gi:setup:noop")],
+        [
+            InlineKeyboardButton(f"{order_label}1: {hint_names_short[hint_order[0]]}", callback_data="gi:setup:pos:1"),
+            InlineKeyboardButton(f"{order_label}2: {hint_names_short[hint_order[1]]}", callback_data="gi:setup:pos:2"),
+            InlineKeyboardButton(f"{order_label}3: {hint_names_short[hint_order[2]]}", callback_data="gi:setup:pos:3"),
+        ],
+    ]
+
+    div = setup.get("division", 1)
+    lbl_div = ("🥈 Cambiar a Segunda División" if div == 1 else "🥇 Cambiar a Primera División") if lang == "es" else               ("🥈 Switch to Second Division" if div == 1 else "🥇 Switch to First Division")
+
+    rows = (
+        [
+            [InlineKeyboardButton(lbl_img,    callback_data="gi:setup:imagen")],
+            [InlineKeyboardButton(lbl_rev,    callback_data="gi:setup:imagen_reveal")],
+            [InlineKeyboardButton(lbl_idol,   callback_data="gi:setup:idol")],
+        ]
+        + hint_rows
+        + order_rows
+        + [
+            [InlineKeyboardButton(lbl_slots, callback_data="gi:setup:slot_header")],
+        ]
+        + slot_rows
+        + [
+            [InlineKeyboardButton(lbl_ini, callback_data="gi:setup:inicio"),
+             InlineKeyboardButton(lbl_fin, callback_data="gi:setup:fin")],
+            [
+                InlineKeyboardButton(f"◀ {_tz_label(max(-12,tz-1))}", callback_data="gi:setup:tz:-1"),
+                InlineKeyboardButton(f"🌐 {_tz_label(tz)}",           callback_data="gi:setup:tz:0"),
+                InlineKeyboardButton(f"{_tz_label(min(14,tz+1))} ▶",  callback_data="gi:setup:tz:+1"),
+            ],
+            [InlineKeyboardButton(lbl_prev,   callback_data="gi:setup:preview"),
+             InlineKeyboardButton(lbl_prev_r, callback_data="gi:setup:preview_reveal")],
+            [InlineKeyboardButton(lbl_div,    callback_data="gi:setup:division")],
+            [
+                InlineKeyboardButton(lbl_pub, callback_data="gi:setup:publicar"),
+                InlineKeyboardButton(lbl_can, callback_data="gi:setup:cancelar"),
+            ],
+        ]
+    )
+    return rows
 def gi_build_ronda_caption(chat_key: str, fin_ts: int, puntos: int,
-                            pistas_dadas: int, hints: dict, tz_offset: int) -> str:
-    lang = get_idioma(chat_key)
-    fin_str = _formato_hora_local(fin_ts, tz_offset)
+                            pistas_dadas: int, hints: dict, tz_offset: int,
+                            hint_order: list = None) -> str:
+    lang       = get_idioma(chat_key)
+    fin_str    = _formato_hora_local(fin_ts, tz_offset)
+    hint_order = hint_order or [1, 2, 3]
     if pistas_dadas == 0:
         pistas_txt = gi_t(lang, "gi_sin_pistas")
     else:
         lineas = []
-        if pistas_dadas >= 1:
-            lineas.append(gi_t(lang, "gi_hint1_reveal").format(hint1=esc(hints["hint1"])))
-        if pistas_dadas >= 2:
-            lineas.append(gi_t(lang, "gi_hint2_reveal").format(hint2=esc(hints["hint2"])))
-        if pistas_dadas >= 3:
-            lineas.append(gi_t(lang, "gi_hint3_reveal").format(hint3=esc(hints["hint3"])))
-        pistas_txt = "\n".join(lineas)
+        for pos, hint_num in enumerate(hint_order[:pistas_dadas], start=1):
+            val = hints.get(f"hint{hint_num}", "")
+            if val:
+                lineas.append(_gi_format_hint(lang, hint_num, pos, val))
+        pistas_txt = "\n".join(lineas) if lineas else gi_t(lang, "gi_sin_pistas")
     return gi_t(lang, "gi_ronda_caption").format(
         fin=esc(fin_str), puntos=puntos, pistas=pistas_txt
     )
@@ -5782,10 +5871,16 @@ async def _gi_countdown(prog_id: int, bot, bot_data: dict):
                 with get_conn() as conn:
                     conn.execute(
                         "INSERT INTO gi_rondas (prog_id,chat_key,chat_id,idol_name,file_id,file_id_reveal,hint1,hint2,hint3,"
-                        "inicio_ts,fin_ts,estado,pistas_dadas,puntos_actuales,mensaje_id,division) VALUES (?,?,?,?,?,?,?,?,?,?,?,'activa',0,5,?,?)",
+                        "inicio_ts,fin_ts,estado,pistas_dadas,puntos_actuales,mensaje_id,division,hint4,hint5,hint6,hint_order)"
+                        " VALUES (?,?,?,?,?,?,?,?,?,?,?,'activa',0,5,?,?,?,?,?,?)",
                         (prog_id, chat_key, chat_id, prog[1], prog[2], prog[3], prog[4], prog[5],
                          prog[6], prog[7], prog[8], msg.message_id,
-                         prog[11] if len(prog) > 11 and prog[11] is not None else 1)
+                         prog[11] if len(prog) > 11 and prog[11] is not None else 1,
+                         prog[12] if len(prog) > 12 else None,
+                         prog[13] if len(prog) > 13 else None,
+                         prog[14] if len(prog) > 14 else None,
+                         prog[15] if len(prog) > 15 and prog[15] else "1,2,3",
+                        )
                     )
                     ronda_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
 
@@ -5820,7 +5915,18 @@ async def _gi_ronda_task(chat_key: str, ronda_id: int, bot, bot_data: dict):
         msg_id         = ronda_init[17]
         file_id        = ronda_init[5]
         file_id_reveal = ronda_init[6]
-        hints          = {"hint1": ronda_init[7], "hint2": ronda_init[8], "hint3": ronda_init[9]}
+        hints          = {
+            "hint1": ronda_init[7], "hint2": ronda_init[8], "hint3": ronda_init[9],
+            "hint4": ronda_init[19] if len(ronda_init) > 19 else None,
+            "hint5": ronda_init[20] if len(ronda_init) > 20 else None,
+            "hint6": ronda_init[21] if len(ronda_init) > 21 else None,
+        }
+        ho_raw_task    = (ronda_init[22] if len(ronda_init) > 22 and ronda_init[22] else "1,2,3")
+        try:
+            hint_order_task = [int(x) for x in ho_raw_task.split(",")]
+            if len(hint_order_task) != 3: hint_order_task = [1, 2, 3]
+        except Exception:
+            hint_order_task = [1, 2, 3]
         idol_name      = ronda_init[4]
 
         with get_conn() as conn:
@@ -5861,7 +5967,7 @@ async def _gi_ronda_task(chat_key: str, ronda_id: int, bot, bot_data: dict):
                 )
 
             lang = get_idioma(chat_key)
-            caption  = gi_build_ronda_caption(chat_key, fin_ts, nuevos_puntos, pistas_dadas, hints, tz_offset)
+            caption  = gi_build_ronda_caption(chat_key, fin_ts, nuevos_puntos, pistas_dadas, hints, tz_offset, hint_order_task)
             keyboard = gi_build_ronda_keyboard(lang)
 
             # Borrar el post anterior (imagen misterio o pista anterior)
@@ -6059,6 +6165,8 @@ async def gi_cmd_idol(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     setup = {
         "file_id": None, "file_id_reveal": None, "reveal_is_video": False, "idol_name": None,
         "hint1": None, "hint2": None, "hint3": None,
+        "hint4": None, "hint5": None, "hint6": None,
+        "hint_order": [1, 2, 3],
         "inicio_ts": None, "fin_ts": None,
         "tz_offset": 0, "esperando": None, "mensaje_id": None, "lang": lang,
         "division": 1
@@ -6732,23 +6840,35 @@ async def gi_btn_editprog(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     # prog: id(0) idol_name(1) file_id(2) file_id_reveal(3) hint1(4) hint2(5) hint3(6)
     #       inicio_ts(7) fin_ts(8) tz_offset(9) estado(10) division(11)
+    #       hint4(12) hint5(13) hint6(14) hint_order(15)
     lang = "es"
+    ho_raw = prog[15] if len(prog) > 15 and prog[15] else "1,2,3"
+    try:
+        hint_order_loaded = [int(x) for x in ho_raw.split(",")]
+        if len(hint_order_loaded) != 3:
+            hint_order_loaded = [1, 2, 3]
+    except Exception:
+        hint_order_loaded = [1, 2, 3]
     setup = {
-        "file_id":       prog[2],
-        "file_id_reveal":prog[3],
-        "reveal_is_video": False,  # se actualizará si el usuario re-sube
-        "idol_name":     prog[1],
-        "hint1":         prog[4],
-        "hint2":         prog[5],
-        "hint3":         prog[6],
-        "inicio_ts":     prog[7],
-        "fin_ts":        prog[8],
-        "tz_offset":     prog[9] or 0,
-        "esperando":     None,
-        "mensaje_id":    None,
-        "lang":          lang,
-        "division":      (prog[11] if len(prog) > 11 and prog[11] is not None else 1),
-        "editing_prog_id": prog_id,  # flag: estamos editando, no creando
+        "file_id":         prog[2],
+        "file_id_reveal":  prog[3],
+        "reveal_is_video": False,
+        "idol_name":       prog[1],
+        "hint1":           prog[4],
+        "hint2":           prog[5],
+        "hint3":           prog[6],
+        "hint4":           prog[12] if len(prog) > 12 else None,
+        "hint5":           prog[13] if len(prog) > 13 else None,
+        "hint6":           prog[14] if len(prog) > 14 else None,
+        "hint_order":      hint_order_loaded,
+        "inicio_ts":       prog[7],
+        "fin_ts":          prog[8],
+        "tz_offset":       prog[9] or 0,
+        "esperando":       None,
+        "mensaje_id":      None,
+        "lang":            lang,
+        "division":        (prog[11] if len(prog) > 11 and prog[11] is not None else 1),
+        "editing_prog_id": prog_id,
     }
     ctx.bot_data[f"gi_setup_{user.id}"] = setup
 
@@ -6919,11 +7039,23 @@ async def gi_btn_setup(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await query.answer(msg, show_alert=True)
         return
 
-    elif action in ("idol", "hint1", "hint2", "hint3"):
+    elif action in ("idol", "hint1", "hint2", "hint3", "hint4", "hint5", "hint6"):
         setup["esperando"] = action
         msg = "Escribe el valor en el chat." if lang == "es" else "Type the value in the chat."
         await query.answer(msg, show_alert=True)
         return
+
+    elif action == "noop":
+        await query.answer()
+        return
+
+    elif action == "pos":
+        # Cicla el hint asignado a esa posición: 1→2→3→4→5→6→1
+        pos = int(parts[3]) - 1  # 0-indexed
+        hint_order = setup.get("hint_order", [1, 2, 3])
+        hint_order[pos] = (hint_order[pos] % 6) + 1
+        setup["hint_order"] = hint_order
+        await query.answer()
 
     elif action == "slot":
         # gi:setup:slot:INI_H:FIN_H — buscar el slot disponible más próximo
@@ -7022,7 +7154,10 @@ async def gi_btn_setup(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     elif action == "publicar":
         campos_req = ["file_id", "file_id_reveal", "idol_name", "hint1", "hint2", "hint3", "inicio_ts", "fin_ts"]
-        faltantes  = [c for c in campos_req if not setup.get(c)]
+        # Verificar que los 3 hints seleccionados en hint_order tienen valor
+        hint_order_setup = setup.get("hint_order", [1, 2, 3])
+        faltantes_orden  = [f"hint{n}" for n in hint_order_setup if not setup.get(f"hint{n}")]
+        faltantes = [c for c in campos_req if not setup.get(c)] + faltantes_orden
         if faltantes:
             msg = ("⚠️ Faltan: " if lang == "es" else "⚠️ Missing: ") + ", ".join(faltantes)
             await query.answer(msg, show_alert=True)
@@ -7040,12 +7175,16 @@ async def gi_btn_setup(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         editing_id = setup.get("editing_prog_id")
         div_prog = setup.get("division", 1)
         with get_conn() as conn:
+            hint_order_str = ",".join(str(h) for h in setup.get("hint_order", [1, 2, 3]))
             if editing_id:
                 conn.execute(
                     "UPDATE gi_programacion SET idol_name=?,file_id=?,file_id_reveal=?,"
-                    "hint1=?,hint2=?,hint3=?,inicio_ts=?,fin_ts=?,tz_offset=?,division=?,estado='pendiente' WHERE id=?",
-                    (setup["idol_name"], setup["file_id"], setup["file_id_reveal"], setup["hint1"],
-                     setup["hint2"], setup["hint3"], setup["inicio_ts"], setup["fin_ts"],
+                    "hint1=?,hint2=?,hint3=?,hint4=?,hint5=?,hint6=?,hint_order=?,"
+                    "inicio_ts=?,fin_ts=?,tz_offset=?,division=?,estado='pendiente' WHERE id=?",
+                    (setup["idol_name"], setup["file_id"], setup["file_id_reveal"],
+                     setup["hint1"], setup["hint2"], setup["hint3"],
+                     setup.get("hint4"), setup.get("hint5"), setup.get("hint6"),
+                     hint_order_str, setup["inicio_ts"], setup["fin_ts"],
                      setup.get("tz_offset", 0), div_prog, editing_id)
                 )
                 prog_id = editing_id
@@ -7054,10 +7193,13 @@ async def gi_btn_setup(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                     old_task.cancel()
             else:
                 conn.execute(
-                    "INSERT INTO gi_programacion (idol_name,file_id,file_id_reveal,hint1,hint2,hint3,inicio_ts,fin_ts,tz_offset,division,estado) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,'pendiente')",
-                    (setup["idol_name"], setup["file_id"], setup["file_id_reveal"], setup["hint1"],
-                     setup["hint2"], setup["hint3"], setup["inicio_ts"], setup["fin_ts"],
+                    "INSERT INTO gi_programacion (idol_name,file_id,file_id_reveal,"
+                    "hint1,hint2,hint3,hint4,hint5,hint6,hint_order,inicio_ts,fin_ts,tz_offset,division,estado) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,'pendiente')",
+                    (setup["idol_name"], setup["file_id"], setup["file_id_reveal"],
+                     setup["hint1"], setup["hint2"], setup["hint3"],
+                     setup.get("hint4"), setup.get("hint5"), setup.get("hint6"),
+                     hint_order_str, setup["inicio_ts"], setup["fin_ts"],
                      setup.get("tz_offset", 0), div_prog)
                 )
                 prog_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
