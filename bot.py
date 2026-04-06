@@ -6111,12 +6111,12 @@ async def gi_cmd_fintemporada(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         with get_conn() as conn:
             for uid in primera:
                 conn.execute(
-                    "UPDATE gi_marcador SET division=1, puntos=0, victorias_temp=0, temporada=? WHERE chat_key=? AND user_id=?",
+                    "UPDATE gi_marcador SET division=1, puntos=0, victorias=0, victorias_temp=0, temporada=? WHERE chat_key=? AND user_id=?",
                     (temporada_actual + 1, chat_key, uid)
                 )
             for uid in segunda:
                 conn.execute(
-                    "UPDATE gi_marcador SET division=2, puntos=0, victorias_temp=0, temporada=? WHERE chat_key=? AND user_id=?",
+                    "UPDATE gi_marcador SET division=2, puntos=0, victorias=0, victorias_temp=0, temporada=? WHERE chat_key=? AND user_id=?",
                     (temporada_actual + 1, chat_key, uid)
                 )
             conn.execute(
@@ -6158,12 +6158,12 @@ async def gi_cmd_fintemporada(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     with get_conn() as conn:
         for uid in bajan:
             conn.execute(
-                "UPDATE gi_marcador SET division=2, puntos=0, victorias_temp=0, temporada=? WHERE chat_key=? AND user_id=?",
+                "UPDATE gi_marcador SET division=2, puntos=0, victorias=0, victorias_temp=0, temporada=? WHERE chat_key=? AND user_id=?",
                 (temporada_actual + 1, chat_key, uid)
             )
         for uid in suben:
             conn.execute(
-                "UPDATE gi_marcador SET division=1, puntos=0, victorias_temp=0, temporada=? WHERE chat_key=? AND user_id=?",
+                "UPDATE gi_marcador SET division=1, puntos=0, victorias=0, victorias_temp=0, temporada=? WHERE chat_key=? AND user_id=?",
                 (temporada_actual + 1, chat_key, uid)
             )
         # Los que se quedan: solo resetear puntos
@@ -6172,7 +6172,7 @@ async def gi_cmd_fintemporada(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         quedan    = todos_ids - movidos
         for uid in quedan:
             conn.execute(
-                "UPDATE gi_marcador SET puntos=0, victorias_temp=0, temporada=? WHERE chat_key=? AND user_id=?",
+                "UPDATE gi_marcador SET puntos=0, victorias=0, victorias_temp=0, temporada=? WHERE chat_key=? AND user_id=?",
                 (temporada_actual + 1, chat_key, uid)
             )
         conn.execute(
