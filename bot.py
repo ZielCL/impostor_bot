@@ -7522,7 +7522,7 @@ async def gi_cmd_cancelar_prog(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     with get_conn() as conn:
         pendientes = conn.execute(
-            "SELECT id, idol_name, inicio_ts, fin_ts, tz_offset FROM gi_programacion WHERE estado='pendiente' ORDER BY inicio_ts"
+            "SELECT id, idol_name, inicio_ts, fin_ts, tz_offset, COALESCE(division,1) FROM gi_programacion WHERE estado='pendiente' ORDER BY inicio_ts"
         ).fetchall()
 
     if not pendientes:
@@ -7532,10 +7532,11 @@ async def gi_cmd_cancelar_prog(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     lineas = []
     keyboard = []
     for prog in pendientes:
-        pid, idol, ini_ts, fin_ts, tz = prog
+        pid, idol, ini_ts, fin_ts, tz, div = prog
         ini_str = _formato_fecha_hora_local(ini_ts, tz or 0)
         fin_str = _formato_hora_local(fin_ts, tz or 0)
-        lineas.append(f"  *{esc(idol)}* — {esc(ini_str)} → {esc(fin_str)}")
+        div_tag = "🥇 DIV1" if div == 1 else "🥈 DIV2"
+        lineas.append(f"  *{esc(idol)}* — {esc(ini_str)} → {esc(fin_str)} \\| {div_tag}")
         keyboard.append([
             InlineKeyboardButton(f"✏️ Editar: {idol}", callback_data=f"gi:editprog:{pid}"),
             InlineKeyboardButton(f"❌ Cancelar: {idol}", callback_data=f"gi:preguntacancelprog:{pid}"),
