@@ -6332,9 +6332,14 @@ def _calcular_zonas_giscore(rows_div1: list, rows_div2: list) -> tuple:
         return ids_descenso, set()
 
     # ── Dos divisiones: temporadas siguientes ──
-    # Zona de descenso en div1
     inactivos_div1 = [r for r in rows_div1 if r[4] == 0]   # victorias_temp == 0
     activos_div1   = [r for r in rows_div1 if r[4]  > 0]
+
+    # Si nadie ha jugado aún (inicio de temporada), no colorear nada
+    if not activos_div1:
+        return set(), set()
+
+    # Zona de descenso en div1: últimos 3 activos + inactivos
     activos_sorted = sorted(activos_div1, key=lambda r: r[2])  # asc por puntos
     bajan_activos  = activos_sorted[:3]
     ids_descenso   = {r[0] for r in bajan_activos} | {r[0] for r in inactivos_div1}
@@ -6345,7 +6350,6 @@ def _calcular_zonas_giscore(rows_div1: list, rows_div2: list) -> tuple:
     total         = n_div1_nuevo + n_div2
     objetivo_div1 = (total + 1) // 2
     suben_n       = max(0, objetivo_div1 - n_div1_nuevo)
-    # rows_div2 ya viene ordenado por puntos DESC
     ids_ascenso   = {r[0] for r in rows_div2[:suben_n]}
 
     return ids_descenso, ids_ascenso
