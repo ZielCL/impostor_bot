@@ -1608,11 +1608,13 @@ def init_db():
         "ALTER TABLE gi_rondas ADD COLUMN hint5 TEXT",
         "ALTER TABLE gi_rondas ADD COLUMN hint6 TEXT",
         "ALTER TABLE gi_rondas ADD COLUMN hint_order TEXT DEFAULT '1,2,3'",
+        "ALTER TABLE gi_rondas ADD COLUMN hint7 TEXT",
         "ALTER TABLE gi_programacion ADD COLUMN division INTEGER DEFAULT 1",
         "ALTER TABLE gi_programacion ADD COLUMN hint4 TEXT",
         "ALTER TABLE gi_programacion ADD COLUMN hint5 TEXT",
         "ALTER TABLE gi_programacion ADD COLUMN hint6 TEXT",
         "ALTER TABLE gi_programacion ADD COLUMN hint_order TEXT DEFAULT '1,2,3'",
+        "ALTER TABLE gi_programacion ADD COLUMN hint7 TEXT",
         """CREATE TABLE IF NOT EXISTS gi_temporada (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             chat_key TEXT,
@@ -5259,6 +5261,7 @@ GI_TEXTOS = {
         "gi_hint4_reveal":      "📅 *Pista {n}:* Debutó en *{val}*",
         "gi_hint5_reveal":      "🌍 *Pista {n}:* Es de *{val}*",
         "gi_hint6_reveal":      "🎭 *Pista {n}:* Su posición es *{val}*",
+        "gi_hint7_reveal":      "🎂 *Pista {n}:* Nació en *{val}*",
         "gi_nueva_pista":       "💡 *¡Nueva pista revelada\\!*\n\n{pista}",
         "gi_btn_participar":    "✋ Participar",
         "gi_btn_salir":         "⏸️ Pausar participación",
@@ -5312,6 +5315,7 @@ GI_TEXTOS = {
         "gi_hint4_reveal":      "📅 *Hint {n}:* Debuted in *{val}*",
         "gi_hint5_reveal":      "🌍 *Hint {n}:* They are from *{val}*",
         "gi_hint6_reveal":      "🎭 *Hint {n}:* Their position is *{val}*",
+        "gi_hint7_reveal":      "🎂 *Hint {n}:* Born in *{val}*",
         "gi_nueva_pista":       "💡 *New hint revealed\\!*\n\n{pista}",
         "gi_btn_participar":    "✋ Join",
         "gi_btn_salir":         "⏸️ Pause participation",
@@ -5549,9 +5553,9 @@ def gi_t(lang: str, key: str) -> str:
 # Nombres cortos de cada tipo de pista para la UI
 _GI_HINT_NOMBRES = {
     "es": {1: "👥 Miembros", 2: "🏢 Empresa", 3: "🎤 Grupo",
-           4: "📅 Debut",    5: "🌍 Nación",  6: "🎭 Posición"},
+           4: "📅 Debut",    5: "🌍 Nación",  6: "🎭 Posición", 7: "🎂 Nacimiento"},
     "en": {1: "👥 Members",  2: "🏢 Company", 3: "🎤 Group",
-           4: "📅 Debut",    5: "🌍 Nation",  6: "🎭 Position"},
+           4: "📅 Debut",    5: "🌍 Nation",  6: "🎭 Position", 7: "🎂 Birth year"},
 }
 
 def _gi_hint_nombre(lang: str, hint_num: int) -> str:
@@ -5603,7 +5607,8 @@ def gi_build_setup_text(setup: dict, lang: str) -> str:
         f"  3\\. 🎤 {'Grupo' if lang == 'es' else 'Group'}: {hv(3)}\n"
         f"  4\\. 📅 Debut: {hv(4)}\n"
         f"  5\\. 🌍 {'Nación' if lang == 'es' else 'Nation'}: {hv(5)}\n"
-        f"  6\\. 🎭 {'Posición' if lang == 'es' else 'Position'}: {hv(6)}\n\n"
+        f"  6\\. 🎭 {'Posición' if lang == 'es' else 'Position'}: {hv(6)}\n"
+        f"  7\\. 🎂 {'Nacimiento' if lang == 'es' else 'Birth year'}: {hv(7)}\n\n"
         f"{lbl_ord}: *{esc(ord_txt)}*\n\n"
         f"⏰ {'Inicio' if lang == 'es' else 'Start'}: {ini_v}\n"
         f"⏹ {'Fin' if lang == 'es' else 'End'}: {fin_v}\n"
@@ -5712,8 +5717,8 @@ def gi_build_setup_keyboard(setup: dict, lang: str) -> list:
 
     # Botones de las 6 pistas
     hint_names_short = {
-        "es": {1: "👥 Miembros", 2: "🏢 Empresa", 3: "🎤 Grupo", 4: "📅 Debut", 5: "🌍 Nación", 6: "🎭 Posición"},
-        "en": {1: "👥 Members",  2: "🏢 Company", 3: "🎤 Group",  4: "📅 Debut", 5: "🌍 Nation", 6: "🎭 Position"},
+        "es": {1: "👥 Miembros", 2: "🏢 Empresa", 3: "🎤 Grupo", 4: "📅 Debut", 5: "🌍 Nación", 6: "🎭 Posición", 7: "🎂 Nacimiento"},
+        "en": {1: "👥 Members",  2: "🏢 Company", 3: "🎤 Group",  4: "📅 Debut", 5: "🌍 Nation", 6: "🎭 Position", 7: "🎂 Birth year"},
     }[lang]
 
     hint_rows = [
@@ -5727,6 +5732,9 @@ def gi_build_setup_keyboard(setup: dict, lang: str) -> list:
             InlineKeyboardButton(f"4. {hint_names_short[4]}", callback_data="gi:setup:hint4"),
             InlineKeyboardButton(f"5. {hint_names_short[5]}", callback_data="gi:setup:hint5"),
             InlineKeyboardButton(f"6. {hint_names_short[6]}", callback_data="gi:setup:hint6"),
+        ],
+        [
+            InlineKeyboardButton(f"7. {hint_names_short[7]}", callback_data="gi:setup:hint7"),
         ],
     ]
 
@@ -5882,8 +5890,8 @@ async def _gi_countdown(prog_id: int, bot, bot_data: dict):
                 with get_conn() as conn:
                     conn.execute(
                         "INSERT INTO gi_rondas (prog_id,chat_key,chat_id,idol_name,file_id,file_id_reveal,hint1,hint2,hint3,"
-                        "inicio_ts,fin_ts,estado,pistas_dadas,puntos_actuales,mensaje_id,division,hint4,hint5,hint6,hint_order)"
-                        " VALUES (?,?,?,?,?,?,?,?,?,?,?,'activa',0,5,?,?,?,?,?,?)",
+                        "inicio_ts,fin_ts,estado,pistas_dadas,puntos_actuales,mensaje_id,division,hint4,hint5,hint6,hint_order,hint7)"
+                        " VALUES (?,?,?,?,?,?,?,?,?,?,?,'activa',0,5,?,?,?,?,?,?,?)",
                         (prog_id, chat_key, chat_id, prog[1], prog[2], prog[3], prog[4], prog[5],
                          prog[6], prog[7], prog[8], msg.message_id,
                          prog[11] if len(prog) > 11 and prog[11] is not None else 1,
@@ -5891,6 +5899,7 @@ async def _gi_countdown(prog_id: int, bot, bot_data: dict):
                          prog[13] if len(prog) > 13 else None,
                          prog[14] if len(prog) > 14 else None,
                          prog[15] if len(prog) > 15 and prog[15] else "1,2,3",
+                         prog[16] if len(prog) > 16 else None,
                         )
                     )
                     ronda_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
@@ -5931,6 +5940,7 @@ async def _gi_ronda_task(chat_key: str, ronda_id: int, bot, bot_data: dict):
             "hint4": ronda_init[19] if len(ronda_init) > 19 else None,
             "hint5": ronda_init[20] if len(ronda_init) > 20 else None,
             "hint6": ronda_init[21] if len(ronda_init) > 21 else None,
+            "hint7": ronda_init[23] if len(ronda_init) > 23 else None,
         }
         ho_raw_task    = (ronda_init[22] if len(ronda_init) > 22 and ronda_init[22] else "1,2,3")
         try:
@@ -6177,7 +6187,7 @@ async def gi_cmd_idol(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     setup = {
         "file_id": None, "file_id_reveal": None, "reveal_is_video": False, "idol_name": None,
         "hint1": None, "hint2": None, "hint3": None,
-        "hint4": None, "hint5": None, "hint6": None,
+        "hint4": None, "hint5": None, "hint6": None, "hint7": None,
         "hint_order": [1, 2, 3],
         "inicio_ts": None, "fin_ts": None,
         "tz_offset": 0, "esperando": None, "mensaje_id": None, "lang": lang,
@@ -6876,6 +6886,7 @@ async def gi_btn_editprog(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         "hint4":           prog[12] if len(prog) > 12 else None,
         "hint5":           prog[13] if len(prog) > 13 else None,
         "hint6":           prog[14] if len(prog) > 14 else None,
+        "hint7":           prog[16] if len(prog) > 16 else None,
         "hint_order":      hint_order_loaded,
         "inicio_ts":       prog[7],
         "fin_ts":          prog[8],
@@ -7055,7 +7066,7 @@ async def gi_btn_setup(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await query.answer(msg, show_alert=True)
         return
 
-    elif action in ("idol", "hint1", "hint2", "hint3", "hint4", "hint5", "hint6"):
+    elif action in ("idol", "hint1", "hint2", "hint3", "hint4", "hint5", "hint6", "hint7"):
         setup["esperando"] = action
         msg = "Escribe el valor en el chat." if lang == "es" else "Type the value in the chat."
         await query.answer(msg, show_alert=True)
@@ -7069,7 +7080,7 @@ async def gi_btn_setup(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         # Cicla el hint asignado a esa posición: 1→2→3→4→5→6→1
         pos = int(parts[3]) - 1  # 0-indexed
         hint_order = setup.get("hint_order", [1, 2, 3])
-        hint_order[pos] = (hint_order[pos] % 6) + 1
+        hint_order[pos] = (hint_order[pos] % 7) + 1
         setup["hint_order"] = hint_order
         await query.answer()
 
@@ -7196,11 +7207,11 @@ async def gi_btn_setup(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             if editing_id:
                 conn.execute(
                     "UPDATE gi_programacion SET idol_name=?,file_id=?,file_id_reveal=?,"
-                    "hint1=?,hint2=?,hint3=?,hint4=?,hint5=?,hint6=?,hint_order=?,"
+                    "hint1=?,hint2=?,hint3=?,hint4=?,hint5=?,hint6=?,hint7=?,hint_order=?,"
                     "inicio_ts=?,fin_ts=?,tz_offset=?,division=?,estado='pendiente' WHERE id=?",
                     (setup["idol_name"], setup["file_id"], setup["file_id_reveal"],
                      setup["hint1"], setup["hint2"], setup["hint3"],
-                     setup.get("hint4"), setup.get("hint5"), setup.get("hint6"),
+                     setup.get("hint4"), setup.get("hint5"), setup.get("hint6"), setup.get("hint7"),
                      hint_order_str, setup["inicio_ts"], setup["fin_ts"],
                      setup.get("tz_offset", 0), div_prog, editing_id)
                 )
@@ -7211,11 +7222,11 @@ async def gi_btn_setup(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             else:
                 conn.execute(
                     "INSERT INTO gi_programacion (idol_name,file_id,file_id_reveal,"
-                    "hint1,hint2,hint3,hint4,hint5,hint6,hint_order,inicio_ts,fin_ts,tz_offset,division,estado) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,'pendiente')",
+                    "hint1,hint2,hint3,hint4,hint5,hint6,hint7,hint_order,inicio_ts,fin_ts,tz_offset,division,estado) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'pendiente')",
                     (setup["idol_name"], setup["file_id"], setup["file_id_reveal"],
                      setup["hint1"], setup["hint2"], setup["hint3"],
-                     setup.get("hint4"), setup.get("hint5"), setup.get("hint6"),
+                     setup.get("hint4"), setup.get("hint5"), setup.get("hint6"), setup.get("hint7"),
                      hint_order_str, setup["inicio_ts"], setup["fin_ts"],
                      setup.get("tz_offset", 0), div_prog)
                 )
