@@ -5287,8 +5287,9 @@ GI_TEXTOS = {
             "_Usa /giscore para ver el marcador\\._"
         ),
         "gi_ronda_caption":     (
-            "🎤 *ADIVINA LA IDOL*\n\n"
-            "⏰ Termina: *{fin}*\n"
+            "🎤 *ADIVINA LA IDOL*\n"
+            "{div_line}"
+            "\n⏰ Termina: *{fin}*\n"
             "🎯 Puntos: *{puntos}*\n"
             "{pistas}\n\n"
             "_Escribe el nombre para ganar_"
@@ -5339,8 +5340,9 @@ GI_TEXTOS = {
             "_Use /giscore to see the scoreboard\\._"
         ),
         "gi_ronda_caption":     (
-            "🎤 *GUESS THE IDOL*\n\n"
-            "⏰ Ends: *{fin}*\n"
+            "🎤 *GUESS THE IDOL*\n"
+            "{div_line}"
+            "\n⏰ Ends: *{fin}*\n"
             "🎯 Points: *{puntos}*\n"
             "{pistas}\n\n"
             "_Type the name to win_"
@@ -5774,7 +5776,7 @@ def gi_build_setup_keyboard(setup: dict, lang: str) -> list:
     return rows
 def gi_build_ronda_caption(chat_key: str, fin_ts: int, puntos: int,
                             pistas_dadas: int, hints: dict, tz_offset: int,
-                            hint_order: list = None) -> str:
+                            hint_order: list = None, division: int = None) -> str:
     lang       = get_idioma(chat_key)
     fin_str    = _formato_hora_local(fin_ts, tz_offset)
     hint_order = hint_order or [1, 2, 3]
@@ -5787,8 +5789,16 @@ def gi_build_ronda_caption(chat_key: str, fin_ts: int, puntos: int,
             if val:
                 lineas.append(_gi_format_hint(lang, hint_num, pos, val))
         pistas_txt = "\n".join(lineas) if lineas else gi_t(lang, "gi_sin_pistas")
+    if division is not None:
+        if lang == "es":
+            div_txt = "🥇 *Primera División*" if division == 1 else "🥈 *Segunda División*"
+        else:
+            div_txt = "🥇 *First Division*" if division == 1 else "🥈 *Second Division*"
+        div_line = div_txt + "\n"
+    else:
+        div_line = ""
     return gi_t(lang, "gi_ronda_caption").format(
-        fin=esc(fin_str), puntos=puntos, pistas=pistas_txt
+        fin=esc(fin_str), puntos=puntos, pistas=pistas_txt, div_line=div_line
     )
 
 def gi_build_ronda_keyboard(lang: str) -> list:
@@ -5859,7 +5869,8 @@ async def _gi_countdown(prog_id: int, bot, bot_data: dict):
                 continue
             lang = get_idioma(chat_key)
             try:
-                caption  = gi_build_ronda_caption(chat_key, prog[8], 5, 0, hints, prog[9])
+                div_pub  = prog[11] if len(prog) > 11 and prog[11] is not None else 1
+                caption  = gi_build_ronda_caption(chat_key, prog[8], 5, 0, hints, prog[9], division=div_pub)
                 keyboard = gi_build_ronda_keyboard(lang)
                 msg = await bot.send_photo(
                     chat_id,
@@ -5967,7 +5978,8 @@ async def _gi_ronda_task(chat_key: str, ronda_id: int, bot, bot_data: dict):
                 )
 
             lang = get_idioma(chat_key)
-            caption  = gi_build_ronda_caption(chat_key, fin_ts, nuevos_puntos, pistas_dadas, hints, tz_offset, hint_order_task)
+            div_ronda_task = ronda_init[18] if len(ronda_init) > 18 and ronda_init[18] is not None else 1
+            caption  = gi_build_ronda_caption(chat_key, fin_ts, nuevos_puntos, pistas_dadas, hints, tz_offset, hint_order_task, division=div_ronda_task)
             keyboard = gi_build_ronda_keyboard(lang)
 
             # Borrar el post anterior (imagen misterio o pista anterior)
