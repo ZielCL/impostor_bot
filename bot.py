@@ -7124,9 +7124,10 @@ async def gi_btn_setup(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             "hint3": setup.get("hint3") or "?",
         }
         lang_preview = lang
-        fin_str = _formato_hora_local(fin_ts, tz)
-        cap = gi_t(lang_preview, "gi_ronda_caption").format(
-            fin=esc(fin_str), puntos=5, pistas=gi_t(lang_preview, "gi_sin_pistas")
+        fin_str  = _formato_hora_local(fin_ts, tz)
+        div_prev = setup.get("division", 1)
+        cap = gi_build_ronda_caption(
+            "", fin_ts, 5, 0, {}, tz, division=div_prev
         )
         try:
             await query.message.reply_photo(
