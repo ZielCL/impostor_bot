@@ -7241,9 +7241,12 @@ async def gi_btn_setup(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         tz       = setup.get("tz_offset", 0)
         ini_str  = _formato_hora_local(setup["inicio_ts"], tz)
         fin_str2 = _formato_hora_local(setup["fin_ts"], tz)
+        div_conf = setup.get("division", 1)
+        div_conf_txt = "🥇 Primera División" if div_conf == 1 else "🥈 Segunda División"
         conf_txt = (
             f"✅ *¡Programado\\!*\n\n"
             f"👤 Idol: *{esc(setup['idol_name'])}*\n"
+            f"🏆 División: *{esc(div_conf_txt)}*\n"
             f"⏰ Inicio: *{esc(ini_str)}*\n"
             f"⏹ Fin: *{esc(fin_str2)}*\n"
             f"📢 Grupos: *{len(grupos)}*"
